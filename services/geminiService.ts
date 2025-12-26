@@ -3,7 +3,6 @@ import { GoogleGenAI } from "@google/genai";
 import { APP_CONFIG } from '../constants';
 import { SalesData, InventoryData, SupplierData, LogisticsData } from '../types';
 
-// Robust initialization
 const getAI = () => {
   const key = process.env.API_KEY;
   if (!key || key === '') {
@@ -87,7 +86,8 @@ export const getSystemSummary = async (
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
-    return JSON.parse(response.text);
+    const text = response.text;
+    return text ? JSON.parse(text) : null;
   } catch (error) {
     return null;
   }
@@ -102,7 +102,8 @@ export const getSupplierComparison = async (suppliers: SupplierData[], urgent: b
       contents: prompt,
       config: { responseMimeType: "application/json" }
     });
-    return JSON.parse(response.text);
+    const text = response.text;
+    return text ? JSON.parse(text) : null;
   } catch (error) {
     return null;
   }

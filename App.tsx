@@ -5,27 +5,26 @@ import {
 } from 'recharts';
 import { 
   AlertTriangle, TrendingUp, Package, Truck, MessageSquare, Send,
-  Loader2, ChevronRight, Activity, History, ArrowRightLeft,
-  CheckCircle2, XCircle, Timer, Scale, Award, Zap, Mic, MicOff, Flame
+  Loader2, Activity, Scale, Zap, Mic, MicOff, Flame
 } from 'lucide-react';
 import { GoogleGenAI, Modality } from "@google/genai";
-import { SALES_DATA, INVENTORY_DATA, SUPPLIER_DATA, LOGISTICS_DATA, APP_CONFIG } from './constants';
+import { SALES_DATA, INVENTORY_DATA, SUPPLIER_DATA, LOGISTICS_DATA } from './constants';
 import { getChainAnalysis, getSystemSummary, getSupplierComparison } from './services/geminiService';
-import { Message, SalesData, InventoryData, LogisticsData, SupplierData } from './types';
+import { Message, SalesData, InventoryData, LogisticsData } from './types';
+
+type LogType = 'info' | 'warn' | 'error';
 
 const App: React.FC = () => {
-  // --- Dashboard State ---
   const [sales, setSales] = useState<SalesData[]>(SALES_DATA);
   const [inventory, setInventory] = useState<InventoryData[]>(INVENTORY_DATA);
-  const [logistics, setLogistics] = useState<LogisticsData[]>(LOGISTICS_DATA);
-  const [activityLog, setActivityLog] = useState<{time: string, msg: string, type: 'info' | 'warn' | 'error'}[]>([]);
+  const [logistics] = useState<LogisticsData[]>(LOGISTICS_DATA);
+  const [activityLog, setActivityLog] = useState<{time: string, msg: string, type: LogType}[]>([]);
   const [summary, setSummary] = useState<any>(null);
   const [comparison, setComparison] = useState<any>(null);
   const [showComparison, setShowComparison] = useState(false);
   const [comparing, setComparing] = useState(false);
   const [loading, setLoading] = useState(true);
 
-  // --- Chat & Voice State ---
   const [messages, setMessages] = useState<Message[]>([]);
   const [input, setInput] = useState('');
   const [isTyping, setIsTyping] = useState(false);
@@ -37,7 +36,6 @@ const App: React.FC = () => {
   const scrollToBottom = () => messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   useEffect(scrollToBottom, [messages, isTyping]);
 
-  // Simulation Tick
   useEffect(() => {
     const interval = setInterval(() => simulateStep(), 15000);
     return () => clearInterval(interval);
@@ -56,11 +54,13 @@ const App: React.FC = () => {
     });
 
     const logTime = new Date().toLocaleTimeString();
+    const logType: LogType = incident ? 'error' : (inventory[0].currentStock < inventory[0].safetyStock ? 'warn' : 'info');
+    
     setActivityLog(prev => [
       { 
         time: logTime, 
         msg: incident ? `EMERGENCY: ${incident}` : `Market Check: Demand at ${newSaleAmount}`, 
-        type: incident ? 'error' : (inventory[0].currentStock < inventory[0].safetyStock ? 'warn' : 'info') 
+        type: logType 
       }, 
       ...prev
     ].slice(0, 8));
@@ -75,7 +75,6 @@ const App: React.FC = () => {
     init();
   }, []);
 
-  // --- Gemini Live Voice Implementation ---
   const toggleVoiceMode = async () => {
     if (isVoiceActive) {
       voiceSessionRef.current?.close();
@@ -110,8 +109,11 @@ const App: React.FC = () => {
             processor.connect(audioContextRef.current!.destination);
           },
           onmessage: async (msg) => {
-            const audioData = msg.serverContent?.modelTurn?.parts[0]?.inlineData?.data;
-            if (audioData) playAudio(audioData);
+            const parts = msg.serverContent?.modelTurn?.parts;
+            if (parts && parts.length > 0) {
+              const audioData = parts[0]?.inlineData?.data;
+              if (audioData) playAudio(audioData);
+            }
           },
           onclose: () => setIsVoiceActive(false),
           onerror: () => setIsVoiceActive(false),
@@ -159,7 +161,6 @@ const App: React.FC = () => {
 
   return (
     <div className="flex flex-col lg:flex-row h-screen bg-slate-50 overflow-hidden font-sans">
-      {/* Left Column: Dashboard */}
       <div className="flex-1 flex flex-col overflow-y-auto p-4 md:p-8 space-y-6">
         <header className="flex justify-between items-center">
           <div>
@@ -186,7 +187,6 @@ const App: React.FC = () => {
           </div>
         </header>
 
-        {/* KPI Cards */}
         <div className="grid grid-cols-1 md:grid-cols-4 gap-4">
           <Card title="Inventory" value={inventory[0].currentStock} unit="Units" icon={<Package />} footer="Mumbai WH" highlight={inventory[0].currentStock < 400} />
           <Card title="Daily Demand" value={sales[sales.length - 1].unitsSold} unit="Avg" icon={<TrendingUp />} footer="Trending Up" />
@@ -194,7 +194,6 @@ const App: React.FC = () => {
           <Card title="Auto-Procure" value={summary?.procurement?.units || 0} unit="Units" icon={<Truck />} footer={summary?.procurement?.supplier || "Apex"} />
         </div>
 
-        {/* Analytics & Tools */}
         <div className="grid grid-cols-1 xl:grid-cols-3 gap-6">
           <div className="xl:col-span-2 space-y-6">
             <div className="bg-white p-8 rounded-[2rem] shadow-xl shadow-slate-200/50 border border-slate-100">
@@ -264,7 +263,6 @@ const App: React.FC = () => {
         </div>
       </div>
 
-      {/* Right Column: AI Assistant Chat */}
       <div className="w-full lg:w-[450px] bg-white border-l border-slate-100 flex flex-col shadow-2xl relative">
         <div className="p-8 bg-slate-50/50 border-b border-slate-100 flex items-center gap-4">
           <div className="w-12 h-12 bg-blue-600 rounded-2xl flex items-center justify-center text-white shadow-xl shadow-blue-200">
